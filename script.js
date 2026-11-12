@@ -245,7 +245,7 @@
         const pinPopupClose = document.getElementById('pin-popup-close');
 
         // DEFAULT PIN: Silakan ubah angka ini jika ingin PIN lain
-        const SECRET_PIN = "2905";
+        const SECRET_PIN = "2206";
 
         let pinAttempt = 0;
         let popupTimeout = null;
@@ -357,7 +357,7 @@
                         if (pinInput.value === SECRET_PIN) {
                             // PIN BENAR
                             showPinPopup({
-                                message: 'Valid!\nLanjut yaa~',
+                                message: 'Valid!\nLanjut yaa sayang~',
                                 buttonText: 'Lanjut 💕'
                             }, true);
 
@@ -538,7 +538,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // D. JIKA YANG DIKLIK ADALAH GALERI KENANGAN (CORE MEMORIES)
                 else {
                     modalImg.src = this.src;
-                    modalImg.style.aspectRatio = "3 / 4";
+                    modalImg.style.aspectRatio = "9 / 16";
                     modalImg.style.objectFit = "cover";
                     if (modalCaption) {
                         modalCaption.innerText = this.alt || "";
@@ -766,6 +766,151 @@ function showMusicPopup() {
 })();
 
 // ==========================================
+// VIDEO BERDAMPINGAN (PUTAR BERSAMAAN & AUTO-PAUSE BACKSOUND SAAT UNMUTE)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const videos = document.querySelectorAll('.memory-video');
+    const videoSection = document.querySelector('.video-section');
+    const bgMusic = document.getElementById('bg-music');
+    const iconPlay = document.getElementById('icon-play');
+    const iconPause = document.getElementById('icon-pause');
+
+    if (videos.length === 0) return;
+
+    let bgPausedByVideo = false;
+    let pauseCheckTimer = null;
+
+    function updateMusicPopupIcons(isPlaying) {
+        if (!iconPlay || !iconPause) return;
+        if (isPlaying) {
+            iconPlay.style.display = 'none';
+            iconPause.style.display = 'block';
+        } else {
+            iconPlay.style.display = 'block';
+            iconPause.style.display = 'none';
+        }
+    }
+
+    function syncBgMusicWithVideos() {
+        if (!bgMusic) return;
+
+        // Cek apakah ada video yang sedang di-unmute dan sedang berputar
+        const anyVideoUnmutedAndPlaying = Array.from(videos).some(
+            v => !v.muted && v.volume > 0 && !v.paused && !v.ended
+        );
+
+        if (anyVideoUnmutedAndPlaying) {
+            if (pauseCheckTimer) {
+                clearTimeout(pauseCheckTimer);
+                pauseCheckTimer = null;
+            }
+            if (!bgMusic.paused) {
+                bgMusic.pause();
+                bgPausedByVideo = true;
+                updateMusicPopupIcons(false);
+            }
+        } else {
+            // Gunakan sedikit jeda agar saat user geser durasi (seeking) backsound tidak bocor
+            if (pauseCheckTimer) clearTimeout(pauseCheckTimer);
+            pauseCheckTimer = setTimeout(() => {
+                const stillUnmutedAndPlaying = Array.from(videos).some(
+                    v => !v.muted && v.volume > 0 && !v.paused && !v.ended
+                );
+                if (!stillUnmutedAndPlaying && bgPausedByVideo && bgMusic.paused) {
+                    bgMusic.play().then(() => {
+                        updateMusicPopupIcons(true);
+                    }).catch(() => { });
+                    bgPausedByVideo = false;
+                }
+            }, 200);
+        }
+    }
+
+    videos.forEach((video) => {
+        // Pastikan default selalu mute
+        video.muted = true;
+        video.defaultMuted = true;
+
+        video.addEventListener('volumechange', () => {
+            if (!video.muted && video.volume > 0) {
+                // Jika salah satu video di-unmute, mute video lainnya agar kedua video tetap bisa berputar bersamaan di semua browser
+                videos.forEach((otherVideo) => {
+                    if (otherVideo !== video && !otherVideo.muted) {
+                        otherVideo.muted = true;
+                    }
+                    if (otherVideo !== video && otherVideo.paused) {
+                        otherVideo.play().catch(() => { });
+                    }
+                });
+                if (video.paused) {
+                    video.play().catch(() => { });
+                }
+            }
+            syncBgMusicWithVideos();
+        });
+
+        video.addEventListener('play', () => {
+            // Pastikan kedua video tetap bisa diputar bersamaan
+            videos.forEach((otherVideo) => {
+                if (otherVideo !== video && otherVideo.paused) {
+                    if (!video.muted) {
+                        otherVideo.muted = true;
+                    }
+                    otherVideo.play().catch(() => { });
+                }
+            });
+            syncBgMusicWithVideos();
+        });
+
+        video.addEventListener('pause', () => {
+            syncBgMusicWithVideos();
+        });
+
+        video.addEventListener('ended', syncBgMusicWithVideos);
+    });
+
+    // Tombol layar penuh untuk masing-masing video
+    document.querySelectorAll('.video-fullscreen-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = btn.closest('.video-card');
+            const video = card ? card.querySelector('.memory-video') : null;
+            if (!video) return;
+
+            if (video.paused) video.play().catch(() => { });
+
+            if (video.requestFullscreen) {
+                video.requestFullscreen().catch(() => { });
+            } else if (video.webkitRequestFullscreen) {
+                video.webkitRequestFullscreen();
+            } else if (video.webkitEnterFullscreen) {
+                // iPhone / iOS Safari
+                video.webkitEnterFullscreen();
+            } else if (video.msRequestFullscreen) {
+                video.msRequestFullscreen();
+            }
+        });
+    });
+
+    // Putar kedua video secara bersamaan saat bagian video terlihat di layar
+    if (videoSection && 'IntersectionObserver' in window) {
+        const videoObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    videos.forEach((v) => {
+                        if (v.paused) {
+                            v.play().catch(() => { });
+                        }
+                    });
+                }
+            });
+        }, { threshold: 0.25 });
+
+        videoObserver.observe(videoSection);
+    }
+});
+
+// ==========================================
 // SCRATCH CARD (ERASER EFFECT) + GALLERY UNLOCK LOGIC
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -884,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = canvas.parentElement;
             const cardRect = card ? card.getBoundingClientRect() : null;
             const w = cardRect && cardRect.width ? Math.round(cardRect.width) : (canvas.offsetWidth || 260);
-            const h = cardRect && cardRect.height ? Math.round(cardRect.height) : Math.round(w * 4 / 3);
+            const h = cardRect && cardRect.height ? Math.round(cardRect.height) : Math.round(w * 16 / 9);
 
             canvas.width = w;
             canvas.height = h;
@@ -1353,4 +1498,4 @@ function buatConfetti() {
     // Gelombang 3: Hujan confetti lanjutan
     setTimeout(() => burstWave(40, 0), 2000);
 }
-
+
