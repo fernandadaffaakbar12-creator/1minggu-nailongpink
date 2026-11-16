@@ -245,7 +245,7 @@
         const pinPopupClose = document.getElementById('pin-popup-close');
 
         // DEFAULT PIN: Silakan ubah angka ini jika ingin PIN lain
-        const SECRET_PIN = "2206";
+        const SECRET_PIN = "140206";
 
         let pinAttempt = 0;
         let popupTimeout = null;
@@ -351,7 +351,7 @@
 
         if (pinInput) {
             pinInput.addEventListener('input', function () {
-                if (pinInput.value.length === 4) {
+                if (pinInput.value.length === SECRET_PIN.length) {
                     // Delay sedikit agar digit terakhir terasa diketik
                     setTimeout(() => {
                         if (pinInput.value === SECRET_PIN) {
@@ -771,11 +771,46 @@ function showMusicPopup() {
 document.addEventListener('DOMContentLoaded', () => {
     const videos = document.querySelectorAll('.memory-video');
     const videoSection = document.querySelector('.video-section');
+    const videoContainer = document.querySelector('.video-container');
     const bgMusic = document.getElementById('bg-music');
     const iconPlay = document.getElementById('icon-play');
     const iconPause = document.getElementById('icon-pause');
 
     if (videos.length === 0) return;
+
+    function updateVideoAspectLayout(video) {
+        if (!video.videoWidth || !video.videoHeight) return;
+        video.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+
+        const card = video.closest('.video-card');
+        if (card) {
+            card.classList.remove('is-landscape', 'is-portrait', 'is-square');
+            const ratio = video.videoWidth / video.videoHeight;
+            if (ratio > 1.05) {
+                card.classList.add('is-landscape');
+            } else if (ratio < 0.95) {
+                card.classList.add('is-portrait');
+            } else {
+                card.classList.add('is-square');
+            }
+        }
+
+        if (videoContainer) {
+            const hasLandscape = Array.from(videos).some((v) => {
+                const c = v.closest('.video-card');
+                return c && c.classList.contains('is-landscape');
+            });
+            videoContainer.classList.toggle('has-landscape', hasLandscape);
+        }
+    }
+
+    videos.forEach((video) => {
+        if (video.readyState >= 1) {
+            updateVideoAspectLayout(video);
+        } else {
+            video.addEventListener('loadedmetadata', () => updateVideoAspectLayout(video), { once: true });
+        }
+    });
 
     let bgPausedByVideo = false;
     let pauseCheckTimer = null;
